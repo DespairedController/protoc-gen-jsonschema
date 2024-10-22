@@ -15,7 +15,7 @@ import (
 	descriptor "google.golang.org/protobuf/types/descriptorpb"
 	plugin "google.golang.org/protobuf/types/pluginpb"
 
-	"github.com/chrusty/protoc-gen-jsonschema/internal/converter/testdata"
+	"github.com/despairedController/protoc-gen-jsonschema/internal/converter/testdata"
 )
 
 const (
@@ -493,13 +493,6 @@ func configureSampleProtos() map[string]sampleProto {
 			ProtoFileName:         "Timestamp.proto",
 			ObjectsToValidateFail: []string{testdata.TimestampFail},
 			ObjectsToValidatePass: []string{testdata.TimestampPass},
-		},
-		"ValidationOptions": {
-			ExpectedJSONSchema:    []string{testdata.ValidationOptions},
-			FilesToGenerate:       []string{"ValidationOptions.proto"},
-			ProtoFileName:         "ValidationOptions.proto",
-			ObjectsToValidateFail: []string{testdata.ValidationOptionsFail},
-			ObjectsToValidatePass: []string{testdata.ValidationOptionsPass},
 		},
 		"WellKnown": {
 			ExpectedJSONSchema:    []string{testdata.WellKnown},

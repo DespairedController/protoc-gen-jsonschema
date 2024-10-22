@@ -3,6 +3,7 @@ package converter
 import (
 	"encoding/json"
 	"fmt"
+	protoc_gen_jsonschema "github.com/despairedController/protoc-gen-jsonschema"
 	"io"
 	"io/ioutil"
 	"path"
@@ -17,8 +18,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	descriptor "google.golang.org/protobuf/types/descriptorpb"
 	plugin "google.golang.org/protobuf/types/pluginpb"
-
-	protoc_gen_jsonschema "github.com/chrusty/protoc-gen-jsonschema"
 )
 
 const (
@@ -47,19 +46,21 @@ type Converter struct {
 
 // ConverterFlags control the behaviour of the converter:
 type ConverterFlags struct {
-	AllFieldsRequired            bool
-	AllowNullValues              bool
-	DisallowAdditionalProperties bool
-	DisallowBigIntsAsStrings     bool
-	EnforceOneOf                 bool
-	EnumsAsConstants             bool
-	EnumsAsStringsOnly           bool
-	EnumsTrimPrefix              bool
-	KeepNewLinesInDescription    bool
-	PrefixSchemaFilesWithPackage bool
-	UseJSONFieldnamesOnly        bool
-	UseProtoAndJSONFieldNames    bool
-	TypeNamesWithNoPackage       bool
+	AllFieldsRequired                   bool
+	AllowNullValues                     bool
+	DisallowAdditionalProperties        bool
+	DisallowBigIntsAsStrings            bool
+	EnforceOneOf                        bool
+	EnumsAsConstants                    bool
+	EnumsAsStringsOnly                  bool
+	EnumsTrimPrefix                     bool
+	EnumsRemoveUnspecified              bool
+	KeepNewLinesInDescription           bool
+	PrefixSchemaFilesWithPackage        bool
+	UseJSONFieldnamesOnly               bool
+	UseProtoAndJSONFieldNames           bool
+	TypeNamesWithNoPackage              bool
+	MapsWithoutMinPropertiesAreOptional bool
 }
 
 // New returns a configured *Converter (defaulting to draft-04 version):
@@ -113,6 +114,8 @@ func (c *Converter) parseGeneratorParameters(parameters string) {
 			c.Flags.EnumsAsStringsOnly = true
 		case "enums_trim_prefix":
 			c.Flags.EnumsTrimPrefix = true
+		case "enums_remove_unspecified":
+			c.Flags.EnumsRemoveUnspecified = true
 		case "json_fieldnames":
 			c.Flags.UseJSONFieldnamesOnly = true
 		case "prefix_schema_files_with_package":
@@ -121,6 +124,9 @@ func (c *Converter) parseGeneratorParameters(parameters string) {
 			c.Flags.UseProtoAndJSONFieldNames = true
 		case "type_names_with_no_package":
 			c.Flags.TypeNamesWithNoPackage = true
+		case "maps_without_min_properties_are_optional":
+			c.Flags.MapsWithoutMinPropertiesAreOptional = true
+
 		}
 
 		// look for specific message targets
@@ -216,6 +222,12 @@ func (c *Converter) convertEnumType(enum *descriptor.EnumDescriptorProto, conver
 
 		valueName := value.GetName()
 
+		if converterFlags.EnumsRemoveUnspecified {
+			if valueName == enumNamePrefix+"UNSPECIFIED" {
+				continue
+			}
+		}
+
 		// If enum name prefix should be removed from enum value name:
 		if converterFlags.EnumsTrimPrefix {
 			valueName = strings.TrimPrefix(valueName, enumNamePrefix)
@@ -232,6 +244,7 @@ func (c *Converter) convertEnumType(enum *descriptor.EnumDescriptorProto, conver
 
 		// Add the values to the ENUM:
 		jsonSchemaType.Enum = append(jsonSchemaType.Enum, valueName)
+
 		if !converterFlags.EnumsAsStringsOnly {
 			jsonSchemaType.Enum = append(jsonSchemaType.Enum, value.Number)
 		}
