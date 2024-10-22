@@ -3,6 +3,7 @@ package converter
 import (
 	"encoding/json"
 	"fmt"
+	protoc_gen_jsonschema "github.com/despairedController/protoc-gen-jsonschema"
 	"io"
 	"io/ioutil"
 	"path"
@@ -17,8 +18,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	descriptor "google.golang.org/protobuf/types/descriptorpb"
 	plugin "google.golang.org/protobuf/types/pluginpb"
-
-	protoc_gen_jsonschema "github.com/chrusty/protoc-gen-jsonschema"
 )
 
 const (

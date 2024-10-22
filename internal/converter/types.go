@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/alecthomas/jsonschema"
-	"github.com/chrusty/protoc-gen-jsonschema/yandex/cloud"
+	options "github.com/despairedController/protoc-gen-jsonschema"
+	"github.com/despairedController/protoc-gen-jsonschema/yandex/cloud"
 	"github.com/iancoleman/orderedmap"
 	"github.com/xeipuuv/gojsonschema"
 	"google.golang.org/protobuf/proto"
@@ -13,8 +14,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	protoc_gen_jsonschema "github.com/chrusty/protoc-gen-jsonschema"
 )
 
 var (
@@ -152,8 +151,8 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 		stringDef := &jsonschema.Type{Type: gojsonschema.TYPE_STRING}
 
 		// Custom field options from protoc-gen-jsonschema:
-		if opt := proto.GetExtension(desc.GetOptions(), protoc_gen_jsonschema.E_FieldOptions); opt != nil {
-			if fieldOptions, ok := opt.(*protoc_gen_jsonschema.FieldOptions); ok {
+		if opt := proto.GetExtension(desc.GetOptions(), options.E_FieldOptions); opt != nil {
+			if fieldOptions, ok := opt.(*options.FieldOptions); ok {
 				stringDef.MinLength = int(fieldOptions.GetMinLength())
 				stringDef.MaxLength = int(fieldOptions.GetMaxLength())
 				stringDef.Pattern = fieldOptions.GetPattern()
@@ -488,8 +487,8 @@ func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *d
 	messageFlags := c.Flags
 
 	// Custom message options from protoc-gen-jsonschema:
-	if opt := proto.GetExtension(msgDesc.GetOptions(), protoc_gen_jsonschema.E_MessageOptions); opt != nil {
-		if messageOptions, ok := opt.(*protoc_gen_jsonschema.MessageOptions); ok {
+	if opt := proto.GetExtension(msgDesc.GetOptions(), options.E_MessageOptions); opt != nil {
+		if messageOptions, ok := opt.(*options.MessageOptions); ok {
 
 			// AllFieldsRequired:
 			if messageOptions.GetAllFieldsRequired() {
@@ -606,8 +605,8 @@ func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *d
 	for _, fieldDesc := range msgDesc.GetField() {
 
 		// Custom field options from protoc-gen-jsonschema:
-		if opt := proto.GetExtension(fieldDesc.GetOptions(), protoc_gen_jsonschema.E_FieldOptions); opt != nil {
-			if fieldOptions, ok := opt.(*protoc_gen_jsonschema.FieldOptions); ok {
+		if opt := proto.GetExtension(fieldDesc.GetOptions(), options.E_FieldOptions); opt != nil {
+			if fieldOptions, ok := opt.(*options.FieldOptions); ok {
 
 				// "Ignored" fields are simply skipped:
 				if fieldOptions.GetIgnore() {

@@ -1,10 +1,9 @@
-module github.com/chrusty/protoc-gen-jsonschema
+module github.com/despairedController/protoc-gen-jsonschema
 
 go 1.18
 
 require (
 	github.com/alecthomas/jsonschema v0.0.0-20210918223802-a1d3f4b43d7b
-	github.com/envoyproxy/protoc-gen-validate v0.10.1
 	github.com/fatih/camelcase v1.0.0
 	github.com/iancoleman/orderedmap v0.2.0
 	github.com/iancoleman/strcase v0.2.0
