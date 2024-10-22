@@ -54,6 +54,7 @@ type ConverterFlags struct {
 	EnumsAsConstants             bool
 	EnumsAsStringsOnly           bool
 	EnumsTrimPrefix              bool
+	EnumsRemoveUnspecified       bool
 	KeepNewLinesInDescription    bool
 	PrefixSchemaFilesWithPackage bool
 	UseJSONFieldnamesOnly        bool
@@ -112,6 +113,8 @@ func (c *Converter) parseGeneratorParameters(parameters string) {
 			c.Flags.EnumsAsStringsOnly = true
 		case "enums_trim_prefix":
 			c.Flags.EnumsTrimPrefix = true
+		case "enums_remove_unspecified":
+			c.Flags.EnumsRemoveUnspecified = true
 		case "json_fieldnames":
 			c.Flags.UseJSONFieldnamesOnly = true
 		case "prefix_schema_files_with_package":
@@ -215,6 +218,12 @@ func (c *Converter) convertEnumType(enum *descriptor.EnumDescriptorProto, conver
 
 		valueName := value.GetName()
 
+		if converterFlags.EnumsRemoveUnspecified {
+			if valueName == enumNamePrefix+"UNSPECIFIED" {
+				continue
+			}
+		}
+
 		// If enum name prefix should be removed from enum value name:
 		if converterFlags.EnumsTrimPrefix {
 			valueName = strings.TrimPrefix(valueName, enumNamePrefix)
@@ -231,6 +240,7 @@ func (c *Converter) convertEnumType(enum *descriptor.EnumDescriptorProto, conver
 
 		// Add the values to the ENUM:
 		jsonSchemaType.Enum = append(jsonSchemaType.Enum, valueName)
+
 		if !converterFlags.EnumsAsStringsOnly {
 			jsonSchemaType.Enum = append(jsonSchemaType.Enum, value.Number)
 		}
