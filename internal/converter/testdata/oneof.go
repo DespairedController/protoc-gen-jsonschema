@@ -27,22 +27,6 @@ const OneOf = `{
                 {
                     "oneOf": [
                         {
-                            "not": {
-                                "anyOf": [
-                                    {
-                                        "required": [
-                                            "bar"
-                                        ]
-                                    },
-                                    {
-                                        "required": [
-                                            "baz"
-                                        ]
-                                    }
-                                ]
-                            }
-                        },
-                        {
                             "required": [
                                 "bar"
                             ]

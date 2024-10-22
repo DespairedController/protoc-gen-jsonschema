@@ -2,17 +2,19 @@ package converter
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"strings"
-
 	"github.com/alecthomas/jsonschema"
+	"github.com/chrusty/protoc-gen-jsonschema/yandex/cloud"
 	"github.com/iancoleman/orderedmap"
 	"github.com/xeipuuv/gojsonschema"
 	"google.golang.org/protobuf/proto"
 	descriptor "google.golang.org/protobuf/types/descriptorpb"
+	"regexp"
+	"strconv"
+	"strings"
 
 	protoc_gen_jsonschema "github.com/chrusty/protoc-gen-jsonschema"
-	protoc_gen_validate "github.com/envoyproxy/protoc-gen-validate/validate"
 )
 
 var (
@@ -158,17 +160,6 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 			}
 		}
 
-		// Custom field options from protoc-gen-validate:
-		if opt := proto.GetExtension(desc.GetOptions(), protoc_gen_validate.E_Rules); opt != nil {
-			if fieldRules, ok := opt.(*protoc_gen_validate.FieldRules); fieldRules != nil && ok {
-				if stringRules := fieldRules.GetString_(); stringRules != nil {
-					stringDef.MaxLength = int(stringRules.GetMaxLen())
-					stringDef.MinLength = int(stringRules.GetMinLen())
-					stringDef.Pattern = stringRules.GetPattern()
-				}
-			}
-		}
-
 		if messageFlags.AllowNullValues {
 			jsonSchemaType.OneOf = []*jsonschema.Type{
 				{Type: gojsonschema.TYPE_NULL},
@@ -267,14 +258,10 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 	if desc.GetLabel() == descriptor.FieldDescriptorProto_LABEL_REPEATED && jsonSchemaType.Type != gojsonschema.TYPE_OBJECT {
 		jsonSchemaType.Items = &jsonschema.Type{}
 
-		// Custom field options from protoc-gen-validate:
-		if opt := proto.GetExtension(desc.GetOptions(), protoc_gen_validate.E_Rules); opt != nil {
-			if fieldRules, ok := opt.(*protoc_gen_validate.FieldRules); fieldRules != nil && ok {
-				if repeatedRules := fieldRules.GetRepeated(); repeatedRules != nil {
-					jsonSchemaType.MaxItems = int(repeatedRules.GetMaxItems())
-					jsonSchemaType.MinItems = int(repeatedRules.GetMinItems())
-				}
-			}
+		// Process constraints on array size
+		err := processSizeConstraints(desc, jsonSchemaType, false)
+		if err != nil {
+			return nil, err
 		}
 
 		if len(jsonSchemaType.Enum) > 0 {
@@ -339,10 +326,22 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 			}
 			jsonSchemaType.AdditionalProperties = additionalPropertiesJSON
 
+			// Process constraints on map size
+			err = processSizeConstraints(desc, jsonSchemaType, true)
+			if err != nil {
+				return nil, err
+			}
+
 		// Arrays:
 		case desc.GetLabel() == descriptor.FieldDescriptorProto_LABEL_REPEATED:
 			jsonSchemaType.Items = recursedJSONSchemaType
 			jsonSchemaType.Type = gojsonschema.TYPE_ARRAY
+
+			// Process constraints on array size
+			err = processSizeConstraints(desc, jsonSchemaType, false)
+			if err != nil {
+				return nil, err
+			}
 
 			// Build up the list of required fields:
 			if messageFlags.AllFieldsRequired && len(recursedJSONSchemaType.OneOf) == 0 && recursedJSONSchemaType.Properties != nil {
@@ -408,9 +407,9 @@ func (c *Converter) convertMessageType(curPkg *ProtoPackage, msgDesc *descriptor
 	for refmsgDesc, nameWithPackage := range duplicatedMessages {
 		var typeName string
 		if c.Flags.TypeNamesWithNoPackage {
-			typeName = refmsgDesc.GetName();
+			typeName = refmsgDesc.GetName()
 		} else {
-			typeName = nameWithPackage;
+			typeName = nameWithPackage
 		}
 		refType, err := c.recursiveConvertMessageType(curPkg, refmsgDesc, "", duplicatedMessages, true)
 		if err != nil {
@@ -577,9 +576,9 @@ func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *d
 	if nameWithPackage, ok := duplicatedMessages[msgDesc]; ok && !ignoreDuplicatedMessages {
 		var typeName string
 		if c.Flags.TypeNamesWithNoPackage {
-			typeName = msgDesc.GetName();
+			typeName = msgDesc.GetName()
 		} else {
-			typeName = nameWithPackage;
+			typeName = nameWithPackage
 		}
 		return &jsonschema.Type{
 			Ref: fmt.Sprintf("%s%s", c.refPrefix, typeName),
@@ -627,6 +626,10 @@ func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *d
 				}
 			}
 		}
+		if proto.HasExtension(fieldDesc.GetOptions(), cloud.E_Pattern) {
+			opt := proto.GetExtension(fieldDesc.GetOptions(), cloud.E_Pattern)
+			jsonSchemaType.Pattern = opt.(string)
+		}
 
 		// Convert the field into a JSONSchema type:
 		recursedJSONSchemaType, err := c.convertField(curPkg, fieldDesc, msgDesc, duplicatedMessages, messageFlags)
@@ -642,15 +645,12 @@ func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *d
 				if *fieldDesc.OneofIndex < int32(len(jsonSchemaType.AllOf)) {
 					break
 				}
-				var notAnyOf = &jsonschema.Type{Not: &jsonschema.Type{AnyOf: []*jsonschema.Type{}}}
-				jsonSchemaType.AllOf = append(jsonSchemaType.AllOf, &jsonschema.Type{OneOf: []*jsonschema.Type{notAnyOf}})
+				jsonSchemaType.AllOf = append(jsonSchemaType.AllOf, &jsonschema.Type{OneOf: []*jsonschema.Type{}})
 			}
 			if c.Flags.UseJSONFieldnamesOnly {
 				jsonSchemaType.AllOf[*fieldDesc.OneofIndex].OneOf = append(jsonSchemaType.AllOf[*fieldDesc.OneofIndex].OneOf, &jsonschema.Type{Required: []string{fieldDesc.GetJsonName()}})
-				jsonSchemaType.AllOf[*fieldDesc.OneofIndex].OneOf[0].Not.AnyOf = append(jsonSchemaType.AllOf[*fieldDesc.OneofIndex].OneOf[0].Not.AnyOf, &jsonschema.Type{Required: []string{fieldDesc.GetJsonName()}})
 			} else {
 				jsonSchemaType.AllOf[*fieldDesc.OneofIndex].OneOf = append(jsonSchemaType.AllOf[*fieldDesc.OneofIndex].OneOf, &jsonschema.Type{Required: []string{fieldDesc.GetName()}})
-				jsonSchemaType.AllOf[*fieldDesc.OneofIndex].OneOf[0].Not.AnyOf = append(jsonSchemaType.AllOf[*fieldDesc.OneofIndex].OneOf[0].Not.AnyOf, &jsonschema.Type{Required: []string{fieldDesc.GetName()}})
 			}
 		}
 
@@ -699,7 +699,7 @@ func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *d
 
 func dedupe(inputStrings []string) []string {
 	appended := make(map[string]bool)
-	outputStrings := []string{}
+	var outputStrings []string
 
 	for _, inputString := range inputStrings {
 		if !appended[inputString] {
@@ -708,4 +708,43 @@ func dedupe(inputStrings []string) []string {
 		}
 	}
 	return outputStrings
+}
+
+var (
+	comparePattern = regexp.MustCompile(`^(<=|<|>=|>)(-?\d+)$`)
+)
+
+func processSizeConstraints(desc *descriptor.FieldDescriptorProto, jsonSchemaType *jsonschema.Type, isMap bool) error {
+	if proto.HasExtension(desc.GetOptions(), cloud.E_Size) {
+		opt := proto.GetExtension(desc.GetOptions(), cloud.E_Size)
+		constraint := opt.(string)
+		matches := comparePattern.FindStringSubmatch(constraint)
+
+		if len(matches) != 3 {
+			return errors.New("invalid field size option")
+		}
+		size, err := strconv.Atoi(matches[2])
+		if err != nil {
+			return err
+		}
+		if isMap {
+			setSizeRestrictions(matches[1], size, &jsonSchemaType.MinProperties, &jsonSchemaType.MaxProperties)
+		} else {
+			setSizeRestrictions(matches[1], size, &jsonSchemaType.MinItems, &jsonSchemaType.MaxItems)
+		}
+	}
+	return nil
+}
+
+func setSizeRestrictions(operation string, size int, minField *int, maxField *int) {
+	switch operation {
+	case ">":
+		*minField = size + 1
+	case ">=":
+		*minField = size
+	case "<":
+		*maxField = size - 1
+	case "<=":
+		*maxField = size
+	}
 }
