@@ -667,10 +667,24 @@ func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *d
 		// Enforce all_fields_required:
 		if messageFlags.AllFieldsRequired {
 			if fieldDesc.OneofIndex == nil && !fieldDesc.GetProto3Optional() {
-				if c.Flags.UseJSONFieldnamesOnly {
-					jsonSchemaType.Required = append(jsonSchemaType.Required, fieldDesc.GetJsonName())
+				if recursedJSONSchemaType.Type == gojsonschema.TYPE_OBJECT && messageFlags.MapsWithoutMinPropertiesAreOptional {
+					recordType, _, ok := c.lookupType(curPkg, fieldDesc.GetTypeName())
+					if !ok {
+						return nil, fmt.Errorf("no such message type named %s", fieldDesc.GetTypeName())
+					}
+					if !recordType.Options.GetMapEntry() {
+						if c.Flags.UseJSONFieldnamesOnly {
+							jsonSchemaType.Required = append(jsonSchemaType.Required, fieldDesc.GetJsonName())
+						} else {
+							jsonSchemaType.Required = append(jsonSchemaType.Required, fieldDesc.GetName())
+						}
+					}
 				} else {
-					jsonSchemaType.Required = append(jsonSchemaType.Required, fieldDesc.GetName())
+					if c.Flags.UseJSONFieldnamesOnly {
+						jsonSchemaType.Required = append(jsonSchemaType.Required, fieldDesc.GetJsonName())
+					} else {
+						jsonSchemaType.Required = append(jsonSchemaType.Required, fieldDesc.GetName())
+					}
 				}
 			}
 		}

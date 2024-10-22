@@ -46,20 +46,21 @@ type Converter struct {
 
 // ConverterFlags control the behaviour of the converter:
 type ConverterFlags struct {
-	AllFieldsRequired            bool
-	AllowNullValues              bool
-	DisallowAdditionalProperties bool
-	DisallowBigIntsAsStrings     bool
-	EnforceOneOf                 bool
-	EnumsAsConstants             bool
-	EnumsAsStringsOnly           bool
-	EnumsTrimPrefix              bool
-	EnumsRemoveUnspecified       bool
-	KeepNewLinesInDescription    bool
-	PrefixSchemaFilesWithPackage bool
-	UseJSONFieldnamesOnly        bool
-	UseProtoAndJSONFieldNames    bool
-	TypeNamesWithNoPackage       bool
+	AllFieldsRequired                   bool
+	AllowNullValues                     bool
+	DisallowAdditionalProperties        bool
+	DisallowBigIntsAsStrings            bool
+	EnforceOneOf                        bool
+	EnumsAsConstants                    bool
+	EnumsAsStringsOnly                  bool
+	EnumsTrimPrefix                     bool
+	EnumsRemoveUnspecified              bool
+	KeepNewLinesInDescription           bool
+	PrefixSchemaFilesWithPackage        bool
+	UseJSONFieldnamesOnly               bool
+	UseProtoAndJSONFieldNames           bool
+	TypeNamesWithNoPackage              bool
+	MapsWithoutMinPropertiesAreOptional bool
 }
 
 // New returns a configured *Converter (defaulting to draft-04 version):
@@ -123,6 +124,9 @@ func (c *Converter) parseGeneratorParameters(parameters string) {
 			c.Flags.UseProtoAndJSONFieldNames = true
 		case "type_names_with_no_package":
 			c.Flags.TypeNamesWithNoPackage = true
+		case "maps_without_min_properties_are_optional":
+			c.Flags.MapsWithoutMinPropertiesAreOptional = true
+
 		}
 
 		// look for specific message targets
