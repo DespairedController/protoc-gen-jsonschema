@@ -159,6 +159,11 @@ func (c *Converter) convertField(curPkg *ProtoPackage, desc *descriptor.FieldDes
 			}
 		}
 
+		if proto.HasExtension(desc.GetOptions(), cloud.E_Pattern) {
+			opt := proto.GetExtension(desc.GetOptions(), cloud.E_Pattern)
+			stringDef.Pattern = opt.(string)
+		}
+
 		if messageFlags.AllowNullValues {
 			jsonSchemaType.OneOf = []*jsonschema.Type{
 				{Type: gojsonschema.TYPE_NULL},
@@ -624,10 +629,6 @@ func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *d
 					}
 				}
 			}
-		}
-		if proto.HasExtension(fieldDesc.GetOptions(), cloud.E_Pattern) {
-			opt := proto.GetExtension(fieldDesc.GetOptions(), cloud.E_Pattern)
-			jsonSchemaType.Pattern = opt.(string)
 		}
 
 		// Convert the field into a JSONSchema type:
