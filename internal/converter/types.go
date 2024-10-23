@@ -672,7 +672,7 @@ func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *d
 					if !ok {
 						return nil, fmt.Errorf("no such message type named %s", fieldDesc.GetTypeName())
 					}
-					if !recordType.Options.GetMapEntry() {
+					if !recordType.Options.GetMapEntry() || recursedJSONSchemaType.MinProperties > 0 {
 						if c.Flags.UseJSONFieldnamesOnly {
 							jsonSchemaType.Required = append(jsonSchemaType.Required, fieldDesc.GetJsonName())
 						} else {
