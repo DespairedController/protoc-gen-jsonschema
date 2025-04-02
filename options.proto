@@ -25,6 +25,9 @@ message FieldOptions {
 
   // Fields tagged with this will constrain strings using the "pattern" keyword in generated schemas
   string pattern = 5;
+
+  // Fields tagged with this will not be marked as required
+  bool force_optional = 6;
 }
 
 
