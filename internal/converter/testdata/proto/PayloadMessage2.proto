@@ -1,6 +1,8 @@
 syntax = "proto3";
 package samples;
 
+import "options.proto";
+
 // PayloadMessage2 contains some common types
 // 
 // PayloadMessage2 is used throughout the test suite
@@ -21,4 +23,5 @@ message PayloadMessage2 {
     float rating      = 4;
     bool complete     = 5;
     Topology topology = 6;
+    repeated int32 my_optional_var = 7 [(protoc.gen.jsonschema.field_options).force_optional = true];
 }

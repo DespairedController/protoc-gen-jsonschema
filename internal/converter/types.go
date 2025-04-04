@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+
 	"github.com/alecthomas/jsonschema"
 	options "github.com/despairedController/protoc-gen-jsonschema"
 	"github.com/despairedController/protoc-gen-jsonschema/yandex/cloud"
@@ -11,9 +15,6 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 	"google.golang.org/protobuf/proto"
 	descriptor "google.golang.org/protobuf/types/descriptorpb"
-	"regexp"
-	"strconv"
-	"strings"
 )
 
 var (
@@ -483,6 +484,19 @@ func (c *Converter) recursiveFindNestedMessages(curPkg *ProtoPackage, msgDesc *d
 	return nil
 }
 
+func shouldSkipDueToForceOptional(fieldDesc *descriptor.FieldDescriptorProto) bool {
+	if opt := proto.GetExtension(fieldDesc.GetOptions(), options.E_FieldOptions); opt != nil {
+		if fieldOptions, ok := opt.(*options.FieldOptions); ok {
+
+			// "ForceOptional" fields will not be marked as required:
+			if fieldOptions.GetForceOptional() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *descriptor.DescriptorProto, pkgName string, duplicatedMessages map[*descriptor.DescriptorProto]string, ignoreDuplicatedMessages bool) (*jsonschema.Type, error) {
 
 	// Prepare a new jsonschema:
@@ -667,7 +681,7 @@ func (c *Converter) recursiveConvertMessageType(curPkg *ProtoPackage, msgDesc *d
 
 		// Enforce all_fields_required:
 		if messageFlags.AllFieldsRequired {
-			if fieldDesc.OneofIndex == nil && !fieldDesc.GetProto3Optional() {
+			if fieldDesc.OneofIndex == nil && !fieldDesc.GetProto3Optional() && !shouldSkipDueToForceOptional(fieldDesc) {
 				if recursedJSONSchemaType.Type == gojsonschema.TYPE_OBJECT && messageFlags.MapsWithoutMinPropertiesAreOptional {
 					recordType, _, ok := c.lookupType(curPkg, fieldDesc.GetTypeName())
 					if !ok {

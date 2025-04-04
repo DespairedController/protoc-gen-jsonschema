@@ -1,6 +1,6 @@
 module github.com/despairedController/protoc-gen-jsonschema
 
-go 1.18
+go 1.22
 
 require (
 	github.com/alecthomas/jsonschema v0.0.0-20210918223802-a1d3f4b43d7b
